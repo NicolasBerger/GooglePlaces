@@ -1,5 +1,7 @@
+package main;
 
-
+import correctionApi.MyGooglePlaces;
+import correctionApi.MyRequestHandler;
 import se.walkercrou.places.RequestHandler;
 
 public class Main {

@@ -1,4 +1,4 @@
-
+package writer;
 
 import java.io.IOException;
 import java.util.logging.FileHandler;
@@ -12,7 +12,7 @@ public class MyLogger {
 	private FileHandler fh;
 
 	public MyLogger() throws SecurityException, IOException{
-		fh = new FileHandler("src/main/resources/logFile.log");
+		fh = new FileHandler("src/main/resources/logFile.log", true);
 		logger.addHandler(fh);
 		fh.setFormatter(new SimpleFormatter());
 	}

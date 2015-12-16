@@ -1,4 +1,4 @@
-
+package dao;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -14,28 +14,29 @@ import se.walkercrou.places.Review;
 
 public class DAO {
 	
-    private PreparedStatement statement_insertOrUpdatePlace;
+	private Connection connection;
+
+	private PreparedStatement statement_insertOrUpdatePlace;
     private PreparedStatement statement_insertOrUpdateReview;
     private PreparedStatement statement_insertPeriod;
     private PreparedStatement statement_selectPeriodIds;
     private PreparedStatement statement_updatePeriod;
     private PreparedStatement statement_deletePeriod;
-    private Connection connection;
+
+    private PreparedStatement statement_selectParams;
+    private PreparedStatement statement_updateParam;
+    private PreparedStatement statement_countPlaces;
     
     private final static String ON_CONFLICT_PLACE_SET = " ON CONFLICT (\"ID\") DO UPDATE SET ";
     private final static String ON_CONFLICT_REVIEW_SET = " ON CONFLICT (\"ID\",\"AUTHOR\") DO UPDATE SET ";
 
 	public void connect() throws ClassNotFoundException, SQLException {      
 	      Class.forName("org.postgresql.Driver");
-	      System.out.println("Driver O.K.");
-
 	      String url = "jdbc:postgresql://localhost:5432/GOOGLE_PLACES";
 	      String user = "postgres";
 	      String passwd = "root";
-
 	      this.connection = DriverManager.getConnection(url, user, passwd);
 	      System.out.println("Connexion effective !");         
-	         
 	      init();
 	  }
 	
@@ -51,7 +52,10 @@ public class DAO {
 				+ " VALUES (?,?,?,?,?)");
 		this.statement_selectPeriodIds = connection.prepareStatement(" SELECT \"ID\" FROM \"PERIOD\" WHERE \"PLACE_ID\" = ? ");
 		this.statement_updatePeriod = connection.prepareStatement(" UPDATE \"PERIOD\" SET \"PLACE_ID\"=?,\"OPENING_DAY\"=?,\"CLOSING_DAY\"=?,\"OPENING_TIME\"=?,\"CLOSING_TIME\"=? WHERE \"ID\" = ?");
-		this.statement_deletePeriod = connection.prepareStatement(" DELETE FROM \"PLACE\" WHERE \"ID\" = ?");
+		this.statement_deletePeriod = connection.prepareStatement(" DELETE FROM \"PERIOD\" WHERE \"ID\" = ?");
+		this.statement_selectParams = connection.prepareStatement("SELECT * FROM \"PARAM\"");
+		this.statement_updateParam = connection.prepareStatement(" UPDATE \"PARAM\" SET \"VALEUR\"=? WHERE \"CLE\"=? ");
+		this.statement_countPlaces = connection.prepareStatement("SELECT COUNT(*) FROM \"PLACE\"");
 	}
 	
 	public void insertPlace(Place place){
@@ -156,5 +160,30 @@ public class DAO {
 				insertPeriod(place.getPlaceId(), place.getHours().getPeriods());
 			}
 		}
+	}
+	
+	public String[] getParam() throws SQLException{
+		String[] params = new String[5];
+		ResultSet rs = statement_selectParams.executeQuery();
+		while(rs.next()){
+			if(rs.getString(1).equals("TOTAL_REQUESTS")) params[0] = rs.getString(2);
+			if(rs.getString(1).equals("LAST_REQUESTS_NUMBER")) params[1] = rs.getString(2);
+			if(rs.getString(1).equals("LAST_REQUESTS_DAY")) params[2] = rs.getString(2);
+			if(rs.getString(1).equals("LAST_COORD_X")) params[3] = rs.getString(2);
+			if(rs.getString(1).equals("LAST_COORD_Y")) params[4] = rs.getString(2);
+		}
+		return params;
+	}
+	
+	public void setParam(String cle, String valeur) throws SQLException{
+		this.statement_updateParam.setString(1, valeur);
+		this.statement_updateParam.setString(2, cle);
+		this.statement_updateParam.execute();
+	}
+
+	public int getPlaceNumber() throws SQLException {
+		ResultSet rs = this.statement_countPlaces.executeQuery();
+		rs.next();
+		return rs.getInt(1);
 	}
 }
