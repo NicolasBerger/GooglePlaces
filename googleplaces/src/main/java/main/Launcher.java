@@ -14,12 +14,12 @@ import java.util.List;
 import org.geotools.referencing.GeodeticCalculator;
 
 import correctionApi.MyGooglePlaces;
+import correctionApi.MyRequestHandler;
 import dao.DAO;
 import se.walkercrou.places.GooglePlaces;
 import se.walkercrou.places.Param;
 import se.walkercrou.places.Place;
 import se.walkercrou.places.exception.GooglePlacesException;
-import se.walkercrou.places.exception.OverQueryLimitException;
 import ui.MyFrame;
 import writer.FileWriter;
 import writer.MyLogger;
@@ -46,8 +46,8 @@ public class Launcher {
 	private GooglePlaces client;
 	private FileWriter fileWriter;
 	
-	public Launcher(MyGooglePlaces gp) throws Exception{
-		client = gp;
+
+	public Launcher() throws Exception{
 		init();
 	}
 	
@@ -91,6 +91,7 @@ public class Launcher {
 			this.lastRequestNb  = Integer.parseInt(params[1]);
 		}
 		this.pointRecherche = new Point2D.Double(Double.parseDouble(params[3]), Double.parseDouble(params[4]));
+		client = new MyGooglePlaces(params[5], new MyRequestHandler());
 		
 		// UI label
 		frame.setPlacesLabelText(this.placeCounter);
@@ -145,6 +146,8 @@ public class Launcher {
 				if(null == this.filteredTypes.stream().filter(s->place.getTypes().contains(s)).findFirst().orElse(null) && !places.contains(place.getPlaceId())){
 					this.places.add(place.getPlaceId());
 					Place detail = this.client.getPlaceById(place.getPlaceId(), new Param[0]);
+					System.out.println(detail.getPlaceId() + "--------------------------");
+					detail.getTypes().stream().forEach(System.out::println);
 					incrementRequestCounter();
 					this.placeCounter = this.dao.getPlaceNumber(); //TODO
 					frame.setPlacesLabelText(this.placeCounter);

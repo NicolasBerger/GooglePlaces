@@ -19,9 +19,12 @@ public class DAO {
 	private PreparedStatement statement_insertOrUpdatePlace;
     private PreparedStatement statement_insertOrUpdateReview;
     private PreparedStatement statement_insertPeriod;
+    private PreparedStatement statement_insertType;
     private PreparedStatement statement_selectPeriodIds;
+    private PreparedStatement statement_selectTypeIds;
     private PreparedStatement statement_updatePeriod;
     private PreparedStatement statement_deletePeriod;
+    private PreparedStatement statement_deleteType;
 
     private PreparedStatement statement_selectParams;
     private PreparedStatement statement_updateParam;
@@ -50,9 +53,12 @@ public class DAO {
 				+ " \"PLACE_ID\"=?,\"RATING\"=?,\"AUTHOR\"=? ");
 		this.statement_insertPeriod = connection.prepareStatement(" INSERT INTO \"PERIOD\" (\"PLACE_ID\",\"OPENING_DAY\",\"CLOSING_DAY\",\"OPENING_TIME\",\"CLOSING_TIME\")"
 				+ " VALUES (?,?,?,?,?)");
+		this.statement_insertType = connection.prepareStatement(" INSERT INTO \"TYPE\" (\"PLACE_ID\",\"TYPE\") VALUES (?,?)");
 		this.statement_selectPeriodIds = connection.prepareStatement(" SELECT \"ID\" FROM \"PERIOD\" WHERE \"PLACE_ID\" = ? ");
+		this.statement_selectTypeIds = connection.prepareStatement(" SELECT \"TYPE\" FROM \"TYPE\" WHERE \"PLACE_ID\" = ? ");
 		this.statement_updatePeriod = connection.prepareStatement(" UPDATE \"PERIOD\" SET \"PLACE_ID\"=?,\"OPENING_DAY\"=?,\"CLOSING_DAY\"=?,\"OPENING_TIME\"=?,\"CLOSING_TIME\"=? WHERE \"ID\" = ?");
 		this.statement_deletePeriod = connection.prepareStatement(" DELETE FROM \"PERIOD\" WHERE \"ID\" = ?");
+		this.statement_deleteType = connection.prepareStatement(" DELETE FROM \"TYPE\" WHERE \"ID_PLACE\" = ? AND \"TYPE\" IN (?)");
 		this.statement_selectParams = connection.prepareStatement("SELECT * FROM \"PARAM\"");
 		this.statement_updateParam = connection.prepareStatement(" UPDATE \"PARAM\" SET \"VALEUR\"=? WHERE \"CLE\"=? ");
 		this.statement_countPlaces = connection.prepareStatement("SELECT COUNT(*) FROM \"PLACE\"");
@@ -140,6 +146,38 @@ public class DAO {
 			}
 		}
 	}
+
+	public void insertType(String placeID, List<String> types) throws SQLException{
+		statement_selectTypeIds.setString(1, placeID);
+		ResultSet rs = statement_selectTypeIds.executeQuery();
+		List<String> typesBDD = new ArrayList<>();
+		while(rs.next()){
+			typesBDD.add(rs.getString(1));
+		}
+		
+		// Suppression doublons
+		for (String string : types) {
+			if(typesBDD.contains(string)){
+				types.remove(string);
+				typesBDD.remove(string);
+			}
+		}
+		
+		// Suppression des types qui n'existent plus
+		if(!typesBDD.isEmpty()){
+			statement_deleteType.setString(1, placeID);
+			statement_deleteType.setString(2, "'" + typesBDD.stream().reduce((a,b)-> a + "','" + b).get() + "'");
+			statement_deleteType.executeUpdate();
+		}
+		
+		// Ajout des nouveaux types
+		for (String string : types) {
+			statement_insertType.setString(1, placeID);
+			statement_insertType.setString(2, string);
+			statement_insertType.executeUpdate();
+		}
+		
+	}
 	
 	private static String extractParisZpiCode(String address){
 		String res = "NONE";
@@ -159,11 +197,12 @@ public class DAO {
 			if(null != place.getHours()){
 				insertPeriod(place.getPlaceId(), place.getHours().getPeriods());
 			}
+			insertType(place.getPlaceId(), place.getTypes());
 		}
 	}
 	
 	public String[] getParam() throws SQLException{
-		String[] params = new String[5];
+		String[] params = new String[6];
 		ResultSet rs = statement_selectParams.executeQuery();
 		while(rs.next()){
 			if(rs.getString(1).equals("TOTAL_REQUESTS")) params[0] = rs.getString(2);
@@ -171,6 +210,7 @@ public class DAO {
 			if(rs.getString(1).equals("LAST_REQUESTS_DAY")) params[2] = rs.getString(2);
 			if(rs.getString(1).equals("LAST_COORD_X")) params[3] = rs.getString(2);
 			if(rs.getString(1).equals("LAST_COORD_Y")) params[4] = rs.getString(2);
+			if(rs.getString(1).equals("API_KEY")) params[5] = rs.getString(2);
 		}
 		return params;
 	}
