@@ -10,17 +10,20 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 import org.geotools.referencing.GeodeticCalculator;
 
 import correctionApi.MyGooglePlaces;
 import correctionApi.MyRequestHandler;
 import dao.DAO;
+import entities.ParamEntity;
 import se.walkercrou.places.GooglePlaces;
 import se.walkercrou.places.Param;
 import se.walkercrou.places.Place;
 import se.walkercrou.places.exception.GooglePlacesException;
 import ui.MyFrame;
+import utils.Utils;
 import writer.FileWriter;
 import writer.MyLogger;
 
@@ -58,7 +61,6 @@ public class Launcher {
 		
 		// DAO
 		this.dao = new DAO();
-		this.dao.connect();
 		this.placeCounter = dao.getPlaceNumber();
 		
 		// UI
@@ -68,30 +70,28 @@ public class Launcher {
 		    public void windowClosing(java.awt.event.WindowEvent windowEvent) {
 				logger.logInfo(pointRecherche.toString());
 				PROCESS = false;
-				try {
-					dao.setParam("LAST_REQUESTS_DAY", LocalDate.now().toString());
-					dao.setParam("LAST_REQUESTS_NUMBER", String.valueOf(requestCounter + lastRequestNb));
-					dao.setParam("TOTAL_REQUESTS", String.valueOf(totalRequests + requestCounter + lastRequestNb));
-					dao.setParam("LAST_COORD_X", String.valueOf(pointRecherche.getX()));
-					dao.setParam("LAST_COORD_Y", String.valueOf(pointRecherche.getY()));
-				}catch(SQLException e){
-					e.printStackTrace();
-				}
+				List<ParamEntity> params = new ArrayList<>();
+				params.add(new ParamEntity("LAST_REQUESTS_DAY", LocalDate.now().toString()));
+				params.add(new ParamEntity("LAST_REQUESTS_NUMBER", String.valueOf(requestCounter + lastRequestNb)));
+				params.add(new ParamEntity("TOTAL_REQUESTS", String.valueOf(totalRequests + requestCounter + lastRequestNb)));
+				params.add(new ParamEntity("LAST_COORD_X", String.valueOf(pointRecherche.getX())));
+				params.add(new ParamEntity("LAST_COORD_Y", String.valueOf(pointRecherche.getY())));
+				dao.updateParam(params);
 				System.exit(0);
 			}
 		});
 	    frame.setVisible(true);
 	    
 	    // Params
-	    String[] params = dao.getParam();
-		this.totalRequests = Integer.parseInt(params[0]);
-		if(LocalDate.parse(params[2]).isBefore(LocalDate.now())){
-			this.lastRequestNb = 0;
-		}else{
-			this.lastRequestNb  = Integer.parseInt(params[1]);
-		}
-		this.pointRecherche = new Point2D.Double(Double.parseDouble(params[3]), Double.parseDouble(params[4]));
-		client = new MyGooglePlaces(params[5], new MyRequestHandler());
+	    Map<String, String> params = dao.selectParam();
+	    client = new MyGooglePlaces(params.get("API_KEY"), new MyRequestHandler());
+	    this.pointRecherche = new Point2D.Double(Double.parseDouble(params.get("LAST_COORD_X")), Double.parseDouble(params.get("LAST_COORD_Y")));
+	    if(LocalDate.parse(params.get("LAST_REQUESTS_DAY")).isBefore(LocalDate.now())){
+	    	this.lastRequestNb = 0;
+	    }else{
+	    	this.lastRequestNb = Integer.parseInt(params.get("LAST_REQUESTS_NUMBER"));
+	    }
+	    this.totalRequests = Integer.parseInt(params.get("TOTAL_REQUESTS"));
 		
 		// UI label
 		frame.setPlacesLabelText(this.placeCounter);
@@ -102,7 +102,6 @@ public class Launcher {
 		this.logger = new MyLogger();
 		logger.logInfo("Application started");
 		fileWriter  = new FileWriter(WRITE_EXCEL);
-		
 	}
 
 	public void start(){
@@ -152,24 +151,21 @@ public class Launcher {
 					this.placeCounter = this.dao.getPlaceNumber(); //TODO
 					frame.setPlacesLabelText(this.placeCounter);
 					this.fileWriter.writePlace(place.getPlaceId(), detail);
-					dao.insertComplete(detail);
+					dao.insertPlace(Utils.convertPlaceToPlaceEntity(detail));
 				}
 			}
 		}catch(GooglePlacesException e){
 			gestionErreurGenerique(e);
 			if(e.getMessage().contains("OVER_QUERY_LIMIT")){
 				PROCESS = false;
-				try {
-					dao.setParam("LAST_REQUESTS_DAY", LocalDate.now().toString());
-					dao.setParam("LAST_REQUESTS_NUMBER", String.valueOf(MAX_REQUEST_DAY));
-					dao.setParam("TOTAL_REQUESTS", String.valueOf(totalRequests + MAX_REQUEST_DAY));
-					dao.setParam("LAST_COORD_X", String.valueOf(this.pointRecherche.getX()));
-					dao.setParam("LAST_COORD_Y", String.valueOf(this.pointRecherche.getY()));
-				} catch (SQLException e1) {
-					e1.printStackTrace();
-				}finally {
-					System.exit(0);
-				}
+				List<ParamEntity> params = new ArrayList<>();
+				params.add(new ParamEntity("LAST_REQUESTS_DAY", LocalDate.now().toString()));
+				params.add(new ParamEntity("LAST_REQUESTS_NUMBER", String.valueOf(MAX_REQUEST_DAY)));
+				params.add(new ParamEntity("TOTAL_REQUESTS", String.valueOf(totalRequests + MAX_REQUEST_DAY)));
+				params.add(new ParamEntity("LAST_COORD_X", String.valueOf(this.pointRecherche.getX())));
+				params.add(new ParamEntity("LAST_COORD_Y", String.valueOf(this.pointRecherche.getY())));
+				dao.updateParam(params);
+				System.exit(0);
 			}
 		}catch(SQLException e){
 			gestionErreurGenerique(e);
@@ -193,16 +189,14 @@ public class Launcher {
 	private void checkSameDay(){
 		if(dateNow.isBefore(LocalDate.now())){
 			dateNow = LocalDate.now();
-			try {
-				dao.setParam("LAST_REQUESTS_DAY", LocalDate.now().toString());
-				dao.setParam("LAST_REQUESTS_NUMBER", String.valueOf(requestCounter + lastRequestNb));
-				dao.setParam("TOTAL_REQUESTS", String.valueOf(totalRequests + requestCounter + lastRequestNb));
-				totalRequests += lastRequestNb + requestCounter; 
-				lastRequestNb = requestCounter = 0;
-				System.out.println("Scheduler");
-			} catch (SQLException e) {
-				e.printStackTrace();
-			}
+			List<ParamEntity> params = new ArrayList<>();
+			params.add(new ParamEntity("LAST_REQUESTS_DAY", LocalDate.now().toString()));
+			params.add(new ParamEntity("LAST_REQUESTS_NUMBER", String.valueOf(requestCounter + lastRequestNb)));
+			params.add(new ParamEntity("TOTAL_REQUESTS", String.valueOf(totalRequests + requestCounter + lastRequestNb)));
+			dao.updateParam(params);
+			totalRequests += lastRequestNb + requestCounter; 
+			lastRequestNb = requestCounter = 0;
+			System.out.println("Scheduler");
 		}
 	}
 
