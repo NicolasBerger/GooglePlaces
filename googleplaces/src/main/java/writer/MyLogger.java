@@ -8,13 +8,27 @@ import java.util.logging.SimpleFormatter;
 
 public class MyLogger {
 
-	private Logger logger = Logger.getLogger("MyLog");
+	private static MyLogger myLogger;
+	
+	private Logger logger;
 	private FileHandler fh;
 
-	public MyLogger() throws SecurityException, IOException{
-		fh = new FileHandler("src/main/resources/logFile.log", true);
-		logger.addHandler(fh);
-		fh.setFormatter(new SimpleFormatter());
+	public static MyLogger getInstance(){
+		try{
+			if(null == myLogger){
+				myLogger = new MyLogger();
+			}
+		}catch (SecurityException | IOException e) {
+			e.printStackTrace();
+		}
+		return myLogger;
+	}
+	
+	private MyLogger() throws SecurityException, IOException {
+		this.logger = Logger.getLogger("MyLog");
+		this.fh = new FileHandler("src/main/resources/logFile.log", true);
+		this.logger.addHandler(this.fh);
+		this.fh.setFormatter(new SimpleFormatter());
 	}
 	
 	public void logError(String s) {
