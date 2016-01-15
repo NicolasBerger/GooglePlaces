@@ -1,8 +1,12 @@
 package ui;
 
 import java.awt.Component;
+import java.awt.Desktop;
 import java.awt.Dimension;
 import java.awt.geom.Point2D;
+import java.io.IOException;
+import java.net.URISyntaxException;
+import java.net.URL;
 
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -34,6 +38,9 @@ public class MyFrame extends JFrame {
 
 		JButton button = new JButton("Process");
 		button.addActionListener(e ->  Launcher.PROCESS = !Launcher.PROCESS);
+		JButton buttonBrowser = new JButton("View coord. on browser");
+		buttonBrowser.addActionListener(e ->  openWebpage());
+		
 		setRequestLabelText(0);
 		setCoordinatesLabelText(new Point2D.Double(0,0));
 		setPlacesLabelText(0);
@@ -70,11 +77,20 @@ public class MyFrame extends JFrame {
 	    
 		Box b2 = Box.createHorizontalBox();
 	    b2.add(button);
+	    b2.add(buttonBrowser);
 	    
 	    Box b3 = Box.createVerticalBox();
 	    b3.add(b1);
 	    b3.add(b2);
 		getContentPane().add(b3);
+	}
+	
+	public void openWebpage(){
+	    try {
+			Desktop.getDesktop().browse(new URL("https://www.google.fr/search?q=" + labelCurrentCoordinates.getText().substring(2).replace(" ", "")).toURI());
+		} catch (IOException | URISyntaxException e) {
+			e.printStackTrace();
+		}
 	}
 	
 	public void setRequestLabelText(int nb) {

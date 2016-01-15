@@ -1,10 +1,7 @@
 package main;
 
-import java.awt.Desktop;
 import java.awt.event.WindowAdapter;
 import java.awt.geom.Point2D;
-import java.io.File;
-import java.io.IOException;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -16,18 +13,16 @@ import org.geotools.referencing.GeodeticCalculator;
 import correctionApi.MyGooglePlaces;
 import correctionApi.MyRequestHandler;
 import dao.DAO;
+import logger.MyLogger;
 import se.walkercrou.places.GooglePlaces;
 import se.walkercrou.places.Param;
 import se.walkercrou.places.Place;
 import se.walkercrou.places.exception.GooglePlacesException;
 import ui.MyFrame;
-import writer.FileWriter;
-import writer.MyLogger;
 
 public class Launcher {
 
 	// CONSTANTES
-	private final static boolean WRITE_EXCEL = false;
 	private static final int MAX_REQUEST_DAY = 150000;
 	private final GeodeticCalculator calc = new GeodeticCalculator();
 	private final static int DISTANCE_CALCUL = 20, AZIMUT_EST = 0, AZIMUT_SUD = -90;
@@ -44,8 +39,6 @@ public class Launcher {
 	private MyFrame frame;
 	private MyLogger logger;
 	private GooglePlaces client;
-	private FileWriter fileWriter;
-	
 
 	public Launcher() throws Exception{
 		init();
@@ -101,8 +94,6 @@ public class Launcher {
 		// Logger
 		this.logger = MyLogger.getInstance();
 		logger.logInfo("Application started");
-		fileWriter  = new FileWriter(WRITE_EXCEL);
-		
 	}
 
 	public void start(){
@@ -117,7 +108,6 @@ public class Launcher {
 			setPointRecherche(prochainPoint(this.pointRecherche, AZIMUT_SUD, DISTANCE_CALCUL));
 			setPointRecherche(new Point2D.Double(this.pointRecherche.getX(), this.pointDepart.getY()));
 		}
-		openFile();
 		try {
 			Thread.sleep(5000);
 		} catch (InterruptedException e) {
@@ -131,17 +121,6 @@ public class Launcher {
 		System.exit(0);
 	}
 
-	private void openFile() {
-		File file = this.fileWriter.write();
-		if(null != file){
-			try {
-				Desktop.getDesktop().open(file);
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-		}
-	}
-
 	private void getPlaces(Point2D pointRecherche) {
 		try{
 			List<Place> list = this.client.getNearbyPlaces(pointRecherche.getX(), pointRecherche.getY(), DISTANCE_CALCUL, GooglePlaces.MAXIMUM_RESULTS);
@@ -150,13 +129,14 @@ public class Launcher {
 				if(null == this.filteredTypes.stream().filter(s->place.getTypes().contains(s)).findFirst().orElse(null) && !places.contains(place.getPlaceId())){
 					this.places.add(place.getPlaceId());
 					Place detail = this.client.getPlaceById(place.getPlaceId(), new Param[0]);
-					System.out.println(detail.getPlaceId());
-//					detail.getTypes().stream().forEach(System.out::println);
 					incrementRequestCounter();
-					this.placeCounter = this.dao.getPlaceNumber(); //TODO
-					frame.setPlacesLabelText(this.placeCounter);
-					this.fileWriter.writePlace(place.getPlaceId(), detail);
-					dao.insertComplete(detail);
+					if(null != detail){
+						System.out.println(detail.getPlaceId());
+	//					detail.getTypes().stream().forEach(System.out::println);
+						this.placeCounter = this.dao.getPlaceNumber(); //TODO
+						frame.setPlacesLabelText(this.placeCounter);
+						dao.insertComplete(detail);
+					}
 				}
 			}
 		}catch(GooglePlacesException e){
